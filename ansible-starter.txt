@@ -1,0 +1,121 @@
+We have three machines
+jenkins-master : 54.89.90.6
+jenkins-slave : 3.92.192.151
+uat-reg : 34.228.11.112
+
+
+on jenkins-master --> install ansible --> jenkins-master is our control machine
+1. install ansible
+root@ip-172-31-34-36:~# apt-get install ansible
+Reading package lists... Done
+Building dependency tree
+Reading state information... Done
+ansible is already the newest version (2.5.1+dfsg-1ubuntu0.1).
+0 upgraded, 0 newly installed, 0 to remove and 19 not upgraded.
+root@ip-172-31-34-36:~#
+
+2. first check if the machines are reachable (ssh)
+2.1 collect the private key eg uat-reg.pem and chmod 600 uat-reg.pem
+2.2
+root@ip-172-31-34-36:~/aug29# ssh ubuntu@34.228.11.112 -i uat-reg.pem
+Welcome to Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-1044-aws x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+  System information as of Thu Aug 29 07:02:41 UTC 2019
+
+  System load:  0.0               Processes:           89
+  Usage of /:   16.0% of 7.69GB   Users logged in:     1
+  Memory usage: 19%               IP address for eth0: 172.31.16.181
+  Swap usage:   0%
+
+
+ * Canonical Livepatch is available for installation.
+   - Reduce system reboots and improve kernel security. Activate at:
+     https://ubuntu.com/livepatch
+
+27 packages can be updated.
+11 updates are security updates.
+
+
+Last login: Thu Aug 29 07:00:10 2019 from 54.89.90.6
+ubuntu@ip-172-31-16-181:~$ exit
+logout
+Connection to 34.228.11.112 closed.
+root@ip-172-31-34-36:~/aug29#
+
+# step 2 gives me the confidence that from master machine I can reach all other machines
+
+
+3. inventory file --> list of all machines under ansible's control
+
+root@ip-172-31-34-36:~/aug29# cat hosts
+[uat-reg]
+34.228.11.112 ansible_user=ubuntu ansible_ssh_private_key_file=/root/aug29/uat-reg.pem
+[jenkins-slave]
+3.92.192.151 ansible_user=ubuntu ansible_ssh_private_key_file=/root/aug29/uat-reg.pem
+root@ip-172-31-34-36:~/aug29#
+
+4. ansible.cfg to point to the right inventory
+root@ip-172-31-34-36:~/aug29# cat ansible.cfg
+[defaults]
+inventory      = /root/aug29/hosts
+
+root@ip-172-31-34-36:~/aug29#
+
+5. install python on all the nodes
+    5.1 loginto uat machine and execut apt-get install python
+    5.2 login to slave machine and execute apt-get install python
+
+
+6. test reachability through ansible
+root@ip-172-31-34-36:~/aug29# ansible -m ping all
+34.228.11.112 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+3.92.192.151 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
+root@ip-172-31-34-36:~/aug29#
+
+7. Execute a command on the nodes (uat-reg, jenkins-slave)
+root@ip-172-31-34-36:~/aug29# ansible -m command -a "free -m" all
+34.228.11.112 | SUCCESS | rc=0 >>
+              total        used        free      shared  buff/cache   available
+Mem:            983         114         181           0         688         710
+Swap:             0           0           0
+
+3.92.192.151 | SUCCESS | rc=0 >>
+              total        used        free      shared  buff/cache   available
+Mem:            983         524         114           4         344         301
+Swap:             0           0           0
+
+root@ip-172-31-34-36:~/aug29#
+root@ip-172-31-34-36:~/aug29# ansible -m command -a "ps" all
+3.92.192.151 | SUCCESS | rc=0 >>
+  PID TTY          TIME CMD
+ 3470 pts/1    00:00:00 sh
+ 3471 pts/1    00:00:00 python
+ 3472 pts/1    00:00:00 python
+ 3473 pts/1    00:00:00 ps
+
+34.228.11.112 | SUCCESS | rc=0 >>
+  PID TTY          TIME CMD
+14533 pts/1    00:00:00 sh
+14534 pts/1    00:00:00 python
+14535 pts/1    00:00:00 python
+14536 pts/1    00:00:00 ps
+
+root@ip-172-31-34-36:~/aug29#
+
+
+
+
+
+
+
+
